@@ -1,1 +1,311 @@
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
+```
+
+
+1 U 2.\
+```{r}
+co2data <- as.data.frame(co2)
+time <- seq(1,468)
+```
+
+The data covers the time from late 1950s to late 1990s. The data has an upward trend and some seasonality.\
+
+Linear trend model
+```{r}
+Model1 <- lm(x ~ time, co2data)
+summary(Model1)
+plot.ts(co2data)
+lines(time, Model1$fitted.values)
+```
+Model 2: seasonality added
+```{r}
+sine <- sin((2*pi*time)/12)
+cosine <- cos((2*pi*time)/12)
+Model2 <- lm(x ~ time + sine + cosine, co2data)
+summary(Model2)
+plot.ts(co2data)
+lines(time, Model2$fitted.values)
+```
+
+```{r}
+resid <- co2data$x - Model2$fitted.values
+plot(resid[1:467],resid[2:468])
+```
+We can see a high level of autocorrelation present in the data.
+
+```{r}
+ResidModel <- lm(resid[2:468] ~ resid[1:467])
+summary(ResidModel)
+```
+Model 3
+```{r}
+sine2 <- sin((2*pi*2*time)/12)
+cosine2 <- cos((2*pi*2*time)/12)
+Model3 <- lm(x ~ time + sine + cosine + sine2 + cosine2, co2data)
+summary(Model3)
+plot.ts(co2data)
+lines(time, Model3$fitted.values)
+```
+A high R Squared and all coefficients are statistically significant except for the sine2 coefficient.
+
+
+```{r}
+ResidModel2 <- lm(Model3$residuals[2:468] ~ Model3$residuals[1:467])
+summary(ResidModel2)
+plot(Model3$residuals[1:467],Model3$residuals[2:468])
+```
+Again we see high autocorrelation
+
+Model 3: added polynomial to trig functions
+```{r}
+Model4 <- lm(x ~ poly(time, 2, raw = TRUE) + sine + cosine + sine2 + cosine2, co2data)
+summary(Model4)
+plot.ts(co2data)
+lines(time, Model4$fitted.values)
+```
+
+```{r}
+ResidModel3 <- lm(Model4$residuals[2:468] ~ Model4$residuals[1:467])
+summary(ResidModel3)
+plot(Model4$residuals[1:467],Model4$residuals[2:468])
+```
+still high autocorrelation, but not as bad
+
+
+Model 4: additional polynomial factor
+```{r}
+Model5 <- lm(x ~ poly(time, 3, raw = TRUE) + sine + cosine + sine2 + cosine2, co2data)
+summary(Model5)
+plot.ts(co2data)
+lines(time, Model5$fitted.values)
+```
+
+```{r}
+ResidModel4 <- lm(Model5$residuals[2:468] ~ Model5$residuals[1:467])
+summary(ResidModel4)
+plot(Model5$residuals[1:467],Model5$residuals[2:468])
+```
+still significant autocorrelation and the sine coefficient is still not significant, but not nearly as bad as at first.
+
+
+4./
+
+We are going to pick our last model with time, time^2, time^3, sine, cosine, sine2, cosine2 variables.  The time polynomial is part of the trend component, while the trig functions are part of the seasonality component. All the components were statistically significant, except for the sine coefficient, but We were not sure if we were allowed to remove this because we have cosine2 included as well. The adjusted R-Squared is very high, so we believe this is a good model.\
+
+Second Set of Data\
+
+```{r}
+gasdata <- read.csv("gasdata.csv")
+gasdata$Week <- rev(gasdata$Week)
+gasdata$Price <- rev(gasdata$Price)
+```
+
+plotting original data
+```{r}
+plot.ts(gasdata$Price)
+```
+
+Stabilize data by taking log
+```{r}
+time2 <- seq(1,1542)
+logPrice <- log(gasdata$Price)
+gasdata$Price <- logPrice
+plot.ts(gasdata$Price)
+```
+
+First Model (linear trend)
+```{r}
+time2 <- seq(1,1542)
+M1 <- lm(Price ~ time2, gasdata)
+summary(M1)
+plot.ts(gasdata$Price)
+lines(time2, M1$fitted.values)
+```
+model 1 residuals
+```{r}
+ResidM1 <- lm(M1$residuals[2:1542] ~ M1$residuals[1:1541])
+summary(ResidM1)
+plot(M1$residuals[1:1451],M1$residuals[2:1452])
+```
+
+Notice the extreme positive correlation
+
+Model 2: for this model, we partitioned the data into three periods of lengths 832 (16 years), 312 (6 years), and 398 (final ~7.5 years).
+
+Model for period 1
+```{r}
+sine3_1 <- sin((2*pi*time2[1:832])/52)
+cosine3_1 <- cos((2*pi*time2[1:832])/52)
+##sine3_1 <- sin((2*pi*time2[1:832])/4)
+##cosine3_1 <- cos((2*pi*time2[1:832])/4)
+M2_1 <- lm(Price[1:832] ~ time2[1:832] + sine3_1 + cosine3_1, gasdata)
+summary(M2_1)
+plot.ts(gasdata$Price[1:832])
+lines(time2[1:832], M2_1$fitted.values[1:832], col = "red")
+```
+```{r}
+ResidM2_1 <- lm(M2_1$residuals[2:832] ~ M2_1$residuals[1:831])
+summary(ResidM2_1)
+plot(M2_1$residuals[1:1451],M2_1$residuals[2:1452])
+```
+
+Model for period 2
+```{r}
+sine3_2 <- sin((2*pi*time2[833:1144])/52)
+cosine3_2 <- cos((2*pi*time2[833:1144])/52)
+M2_2 <- lm(Price[833:1144] ~ time2[833:1144] + sine3_2 + cosine3_2, gasdata)
+summary(M2_2)
+plot.ts(gasdata$Price[833:1144])
+lines(time2[1:312], M2_2$fitted.values, col = "blue")
+```
+
+```{r}
+ResidM2_2 <- lm(M2_2$residuals[2:312] ~ M2_2$residuals[1:311])
+summary(ResidM2_2)
+plot(M2_2$residuals[1:311],M2_2$residuals[2:312])
+```
+Model for period 3
+```{r}
+sine3_3 <- sin((2*pi*time2[1145:1542])/52)
+cosine3_3 <- cos((2*pi*time2[1145:1542])/52)
+M2_3 <- lm(Price[1145:1542] ~ time2[1145:1542] + sine3_3 + cosine3_3, gasdata)
+summary(M2_3)
+plot.ts(gasdata$Price[1145:1542])
+lines(time2[1:398], M2_3$fitted.values, col = "green")
+```
+
+```{r}
+ResidM2_3 <- lm(M2_3$residuals[2:398] ~ M2_3$residuals[1:397])
+summary(ResidM2_3)
+plot(M2_3$residuals[1:397],M2_3$residuals[2:398])
+```
+
+We can see that there is high autocorrelation throughout all 3 perods for model 2.
+
+Putting the three graphs together (ignore the repeating time intervals)
+```{r}
+par(mfrow = c(1,3))
+plot.ts(gasdata$Price[1:832])
+lines(time2[1:832], M2_1$fitted.values[1:832], col = "red")
+plot.ts(gasdata$Price[833:1144])
+lines(time2[1:312], M2_2$fitted.values, col = "blue")
+plot.ts(gasdata$Price[1145:1542])
+lines(time2[1:398], M2_3$fitted.values, col = "green")
+```
+
+Model 3
+
+period 1:  added polynomial term
+```{r}
+M3_1 <- lm(Price[1:832] ~ poly(time2[1:832], 2, raw = TRUE) + sine3_1 + cosine3_1, gasdata)
+summary(M3_1)
+plot.ts(gasdata$Price[1:832])
+lines(time2[1:832], M3_1$fitted.values[1:832], col = "red")
+```
+All coefficients are statistically significant at the 0.05 level.
+
+period 1 residuals
+```{r}
+ResidM3_1 <- lm(M3_1$residuals[2:832] ~ M3_1$residuals[1:831])
+summary(ResidM3_1)
+plot(M3_1$residuals[1:831],M3_1$residuals[2:832])
+```
+The residuals are still very highly correlated.
+
+period 2: add in another time squared
+```{r}
+M3_2 <- lm(Price[833:1144] ~ poly(time2[833:1144], 2, raw = TRUE) + sine3_2 + cosine3_2, gasdata)
+summary(M3_2)
+plot.ts(gasdata$Price[833:1144])
+lines(time2[1:312], M3_2$fitted.values, col = "blue")
+```
+Period 2 residuals
+```{r}
+ResidM3_2 <- lm(M3_2$residuals[2:312] ~ M3_2$residuals[1:311])
+summary(ResidM3_2)
+plot(M3_2$residuals[1:311],M3_2$residuals[2:312])
+```
+high autocorrelation
+
+period 3: add time squared
+```{r}
+M3_3 <- lm(Price[1145:1542] ~ poly(time2[1145:1542], 2, raw = TRUE) + sine3_3 + cosine3_3, gasdata)
+summary(M3_3)
+plot.ts(gasdata$Price[1145:1542])
+lines(time2[1:398], M3_3$fitted.values, col = "green")
+```
+Adjusted R squared increased a bit and all coefficients are statistically significant.
+
+residuals for period 3
+```{r}
+ResidM3_3 <- lm(M3_3$residuals[2:398] ~ M3_3$residuals[1:397])
+summary(ResidM3_3)
+plot(M3_3$residuals[1:397],M3_3$residuals[2:398])
+```
+Again, high autocorrelation.
+
+Putting the three graphs together (ignore the repeating time intervals)
+```{r}
+par(mfrow = c(1,3))
+plot.ts(gasdata$Price[1:832])
+lines(time2[1:832], M3_1$fitted.values[1:832], col = "red")
+plot.ts(gasdata$Price[833:1144])
+lines(time2[1:312], M3_2$fitted.values, col = "blue")
+plot.ts(gasdata$Price[1145:1542])
+lines(time2[1:398], M3_3$fitted.values, col = "green")
+```
+We tried to change the model between periods, but we found that adding the polynomial terms worked best for all three periods. Our model is starting to take shape, we are going to make another set of polynomial additions in the next one.
+
+Model 4
+
+```{r}
+sine3 <- sin((2*pi*time2)/52)
+cosine3 <- cos((2*pi*time2)/52)
+M4 <- lm(Price ~ poly(time2, 3, raw = TRUE) + sine3 + cosine3, gasdata)
+summary(M4)
+plot.ts(gasdata$Price)
+lines(time2, M4$fitted.values, col = "red")
+```
+
+Model 4 residuals
+```{r}
+ResidM4 <- lm(M4$residuals[2:1542] ~ M4$residuals[1:1541])
+summary(ResidM4)
+plot(M4$residuals[1:1451],M4$residuals[2:1452])
+```
+High autocorrelation
+
+
+Model 5
+```{r}
+sine3 <- sin((2*pi*time2)/52)
+cosine3 <- cos((2*pi*time2)/52)
+M5 <- lm(Price ~ poly(time2, 4, raw = TRUE) + sine3 + cosine3, gasdata)
+summary(M5)
+plot.ts(gasdata$Price)
+lines(time2, M5$fitted.values, col = "red")
+```
+Model 5 residuals
+```{r}
+ResidM5 <- lm(M5$residuals[2:1542] ~ M5$residuals[1:1541])
+summary(ResidM5)
+plot(M5$residuals[1:1451],M5$residuals[2:1452])
+```
+High autocorrelation\
+
+For our final model, we went with polynomial terms up to time^4 to represent the trend component and sine and cosine terms with k = 1. We ended up with an R squared of 0.869 with all the coefficients being statistically significant.
+
+Prediction
+```{r}
+time_predict <- seq(1:2000)
+sinePred <- sin((2*pi*time_predict)/52)
+cosinePred <- cos((2*pi*time_predict)/52)
+y_hat <- (3.01*10^-1) + (-3.551*10^-3)*time_predict + (1.401*10^-5)*(time_predict)^2 + (-1.393*10^-8)*(time_predict)^3 + (4.280*10^-12)*(time_predict)^4 + (5.360*10^-2)*(sinePred) + (-2.591*10^-2)*(cosinePred)
+plot(time_predict,y_hat)
+```
+
+This model predicts that as time goes on, gas prices will continue to increase.
+
